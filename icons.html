@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SVG icon benchmark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: lab bench — precise, calm, numbers first
+   IDEA: an instrument readout; each method leaves a stacked trace of its render cost
+   PICTURE: the live timing bars beside a stage of thousands of real icons
+   COLOUR and TYPE: plum-black ground, white ink, rose / pale rose / dusk / lavender per method; Inter Tight 300 + Inter
+   LAYOUT: results left, controls + live stage right, scaling chart full width, method notes last */
+:root{color-scheme:dark;--bg:#1a0f1f;--ink:#fff;--mute:#bba9c8;--line:#3b2a44;--card:#23152b;--deep:#130a17;
+  --m1:#ff8fa3;--m2:#ffc9d3;--m3:#8f7aa8;--m4:#c9b4ec}
+:root[data-theme=light],:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(24px,4vw,56px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+h1{font:300 clamp(32px,5vw,52px)/1.05 "Inter Tight",Inter,sans-serif;margin:0 0 12px;text-wrap:balance;letter-spacing:-.01em}
+h2{font:500 clamp(22px,2.6vw,30px)/1.15 "Inter Tight",Inter,sans-serif;margin:0 0 6px;text-wrap:balance}
+h3{font:600 17px/1.3 Inter,sans-serif;margin:0 0 10px}
+p{margin:0 0 12px;max-width:70ch}
+.mute{color:var(--mute)}.sm{font-size:13px}
+header.band{padding-bottom:8px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:clamp(16px,2.4vw,26px)}
+.bars{display:grid;gap:14px;margin:22px 0 14px}
+.row{display:grid;grid-template-columns:170px minmax(0,1fr) 80px;gap:12px;align-items:center}
+.lab{font-weight:500;font-size:15px;line-height:1.25}
+.track{height:30px;background:var(--deep);border-radius:6px;display:flex;overflow:hidden}
+.track span{height:100%;transition:width .5s ease}
+.track .s2{opacity:.62}.track .s3{opacity:.32}
+.val{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:500}
+.val.best{color:var(--m1)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--mute);margin-bottom:18px}
+.legend i{display:inline-block;width:14px;height:10px;border-radius:2px;background:var(--ink);margin-right:6px;vertical-align:0}
+.empty{color:var(--mute);padding:30px 0}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:500;color:var(--mute);font-size:13px}
+.scroll{overflow-x:auto}
+form{display:grid;gap:12px}
+label.f{display:grid;gap:4px;font-size:13px;color:var(--mute)}
+select{font:16px Inter,sans-serif;color:var(--ink);background:var(--deep);border:1px solid var(--line);border-radius:8px;height:44px;padding:0 10px}
+fieldset{border:1px solid var(--line);border-radius:10px;padding:8px 12px 10px;margin:0;display:grid;gap:2px}
+legend{font-size:13px;color:var(--mute);padding:0 4px}
+.chk{display:flex;align-items:center;gap:10px;min-height:36px;font-size:15px;cursor:pointer}
+.chk input{width:20px;height:20px;accent-color:var(--m1);margin:0}
+.sw{width:12px;height:12px;border-radius:3px;flex:none}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:600 15px Inter,sans-serif;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--deep);color:var(--ink);cursor:pointer}
+button.pri{background:var(--m1);color:#2a0c16;border-color:var(--m1)}
+button:disabled{opacity:.45;cursor:default}
+:focus-visible{outline:2px solid var(--m2);outline-offset:2px}
+.prog{height:4px;background:var(--deep);border-radius:2px;overflow:hidden}
+.prog span{display:block;height:100%;width:0;background:var(--m1);transition:width .2s}
+.status{font-size:13px;color:var(--mute);min-height:20px}
+.st{--base:24px;--sz:var(--base);height:220px;overflow:auto;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;padding:10px;color:var(--m1);background:var(--deep);border:1px solid var(--line);border-radius:10px}
+.st.big{--sz:calc(var(--base) * 1.5)}
+.st .ic{display:block;flex:none;width:var(--sz);height:var(--sz)}
+.st svg.ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.st .bg{background-size:contain;background-repeat:no-repeat;background-position:center}
+.st .mk{background-color:currentColor;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center}
+.fig{position:relative;min-height:320px}.fig>svg{position:absolute;inset:0;width:100%;height:100%}
+.fig .note{position:absolute;inset:0;display:grid;place-items:center;color:var(--mute);text-align:center;padding:20px}
+.fig text{fill:var(--mute);font:12px Inter,sans-serif}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:24px}
+.notes ul{margin:0;padding-left:18px}.notes li{margin-bottom:8px}
+code{font-size:.92em;background:var(--deep);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+@media(max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.row{grid-template-columns:minmax(0,1fr) 72px}.row .lab{grid-column:1/-1}.row .track{grid-column:1}table{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.track span,.prog span{transition:none}}
+</style>
+</head>
+<body>
+<svg id="sprite" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
+<style id="dyn"></style>
+
+<header class="band"><div class="wrap">
+  <h1>Inline SVG vs data-URI icons</h1>
+  <p class="mute">Renders the same icons four ways in your browser and times DOM insertion, style + layout, first paint and a re-layout. Every round shuffles the order; the first round is a discarded warm-up.</p>
+  <p class="sm mute" id="env"></p>
+</div></header>
+
+<main class="band" style="padding-top:12px"><div class="wrap grid">
+  <section class="card" aria-live="polite">
+    <h2 id="headline">Waiting for the first run…</h2>
+    <p class="sm mute" id="sub">Total = DOM + CSS insertion, forced style + layout, and the rendering work of the next frame (median).</p>
+    <div class="bars" id="bars"><div class="empty">Results appear here after each round.</div></div>
+    <div class="legend"><span><i></i>DOM + CSS insert</span><span><i style="opacity:.62"></i>Style + layout</span><span><i style="opacity:.32"></i>Paint frame</span></div>
+    <div class="scroll"><table id="tbl"></table></div>
+    <div class="btns" style="margin-top:14px"><button type="button" id="copy">Copy results (Markdown)</button><span class="status" id="copied" style="align-self:center"></span></div>
+  </section>
+
+  <aside class="card">
+    <form id="cfg">
+      <h3>Benchmark settings</h3>
+      <label class="f">Icons per render<select id="n"><option>100</option><option>500</option><option selected>1000</option><option>2000</option><option>5000</option><option>10000</option></select></label>
+      <label class="f">Rounds<select id="rounds"><option>5</option><option>10</option><option selected>15</option><option>25</option><option>50</option></select></label>
+      <label class="f">Icon size<select id="size"><option value="16">16 px</option><option value="24" selected>24 px</option><option value="32">32 px</option></select></label>
+      <label class="f">Data-URI encoding<select id="enc"><option value="utf8">URL-encoded UTF-8</option><option value="b64">Base64</option></select></label>
+      <label class="f">Data-URI delivery<select id="del"><option value="class">Shared CSS classes (one rule per icon)</option><option value="style">Inline style attribute per element</option></select></label>
+      <label class="chk"><input type="checkbox" id="bust" checked>Fresh data URIs each round (no image cache)</label>
+      <fieldset id="modes"><legend>Methods</legend></fieldset>
+      <div class="btns">
+        <button type="submit" class="pri" id="run">Run benchmark</button>
+        <button type="button" id="sweepBtn">Scaling sweep</button>
+        <button type="button" id="stop" disabled>Stop</button>
+      </div>
+      <div class="prog"><span id="bar"></span></div>
+      <div class="status" id="status">Ready.</div>
+    </form>
+    <h3 style="margin-top:18px">Live stage</h3>
+    <div class="st" id="stage" aria-label="Benchmark render area"></div>
+    <p class="sm mute" style="margin-top:8px">Keep this box on screen and the tab visible while a run is going — browsers skip painting what isn't shown.</p>
+  </aside>
+</div></main>
+
+<section class="band" style="padding-top:0"><div class="wrap card">
+  <h2>How each method scales</h2>
+  <p class="sm mute">Median total time at 250 to 10,000 icons, using the settings above (half the rounds per step).</p>
+  <div class="legend" id="sLegend"></div>
+  <div class="fig" id="sfig"><svg id="ssvg" role="img" aria-label="Line chart of render time by icon count"></svg><div class="note" id="snote">Press “Scaling sweep” to see how render time grows with icon count.</div></div>
+</div></section>
+
+<section class="band" style="padding-top:0"><div class="wrap notes">
+  <div>
+    <h3>What the four methods are</h3>
+    <ul>
+      <li><b>Inline &lt;svg&gt;</b> — a full <code>&lt;svg&gt;&lt;path d="…"/&gt;&lt;/svg&gt;</code> per icon, stroked with <code>currentColor</code>.</li>
+      <li><b>Inline &lt;svg&gt;&lt;use&gt;</b> — a tiny <code>&lt;svg&gt;&lt;use href="#icon"/&gt;&lt;/svg&gt;</code> pointing at a sprite of symbols already in the page.</li>
+      <li><b>Data URI background</b> — an empty <code>&lt;i&gt;</code> with <code>background-image: url("data:image/svg+xml,…")</code>. Colour is baked into the SVG.</li>
+      <li><b>Data URI mask</b> — the same URI as <code>mask-image</code> over <code>background-color: currentColor</code>, so the icon can still be recoloured with CSS.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>What the phases measure</h3>
+    <ul>
+      <li><b>DOM + CSS insert</b> — writing the generated stylesheet and <code>innerHTML</code> (HTML parsing, node creation). String building is excluded.</li>
+      <li><b>Style + layout</b> — a forced synchronous layout via <code>offsetHeight</code>.</li>
+      <li><b>Paint frame</b> — from the next <code>requestAnimationFrame</code> to a <code>MessageChannel</code> task after it: the frame's rendering work, without the wait for vsync.</li>
+      <li><b>Re-layout</b> — icons grow 1.5×, forcing layout and repaint of what's already there.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>Caveats</h3>
+    <ul>
+      <li>Browsers may decode data-URI images off the main thread or after the measured frame, so their first-paint cost can be under-counted. Confirm big differences in the DevTools Performance panel.</li>
+      <li>Identical data URIs share one decoded image. “Fresh data URIs” adds a per-round comment so each round pays for parsing again — the worst case, like a cold page load.</li>
+      <li>Inline SVG costs grow with nodes and HTML bytes; data URIs move the bytes into CSS and the work into image decoding and rasterising.</li>
+      <li>Close other heavy tabs and run a few times; timer precision is reduced in some browsers.</li>
+    </ul>
+  </div>
+</div></section>
+
+<script>
+{
+const createElement = (tag, props = {}) => Object.assign(document.createElement(tag), props);
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const ICONS = {
+  home:'M3 11l9-8 9 8M5 10v10h14V10',
+  search:'M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM16 16l5 5',
+  heart:'M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z',
+  star:'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z',
+  bell:'M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 21h4',
+  user:'M12 12a4 4 0 1 0 0-8a4 4 0 1 0 0 8zM4 21a8 8 0 0 1 16 0',
+  mail:'M3 6h18v12H3zM3 7l9 6 9-6',
+  sun:'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1',
+  check:'M4 12l5 5L20 6',
+  close:'M6 6l12 12M18 6L6 18',
+  calendar:'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
+  lock:'M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3',
+  cloud:'M7 18a4 4 0 0 1-.5-8A6 6 0 0 1 18 9a4.5 4.5 0 0 1 0 9z',
+  play:'M8 5l11 7-11 7z',
+  trash:'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
+  arrow:'M5 12h14M13 6l6 6-6 6'
+};
+const NAMES = Object.keys(ICONS), L = NAMES.length;
+$('sprite').innerHTML = NAMES.map(k => `<symbol id="s-${k}" viewBox="0 0 24 24"><path d="${ICONS[k]}"/></symbol>`).join('');
+
+const svgSrc = (d, stroke, tag) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${stroke}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>${tag}<path d='${d}'/></svg>`;
+const toUri = (s, enc) => enc === 'b64' ? 'data:image/svg+xml;base64,' + btoa(s) : 'data:image/svg+xml,' + s.replace(/[<>#%{}"]/g, c => encodeURIComponent(c));
+
+const inlineBuild = tpl => n => { let h = ''; for (let i = 0; i < n; i++) h += tpl(NAMES[i % L]); return { html: h, css: '' }; };
+const dataBuild = (cls, color, props) => (n, ctx) => {
+  const u = NAMES.map(k => toUri(svgSrc(ICONS[k], color, ctx.tag), ctx.enc));
+  let h = '';
+  if (ctx.del === 'style') {
+    const decl = u.map(x => props.map(p => `${p}:url(&quot;${x}&quot;)`).join(';'));
+    for (let i = 0; i < n; i++) h += `<i class="ic ${cls}" style="${decl[i % L]}"></i>`;
+    return { html: h, css: '' };
+  }
+  const css = NAMES.map((k, j) => `.st .${cls}-${k}{${props.map(p => `${p}:url("${u[j]}")`).join(';')}}`).join('\n');
+  for (let i = 0; i < n; i++) h += `<i class="ic ${cls} ${cls}-${NAMES[i % L]}"></i>`;
+  return { html: h, css };
+};
+const MODES = [
+  { id:'svg',  name:'Inline <svg>',        c:'--m1', build: inlineBuild(k => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[k]}"/></svg>`) },
+  { id:'use',  name:'Inline <svg><use>',   c:'--m2', build: inlineBuild(k => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#s-${k}"/></svg>`) },
+  { id:'bg',   name:'Data URI background', c:'--m3', build: dataBuild('bg', '#ff8fa3', ['background-image']) },
+  { id:'mask', name:'Data URI mask',       c:'--m4', build: dataBuild('mk', '#000', ['-webkit-mask-image','mask-image']) }
+];
+const byId = Object.fromEntries(MODES.map(m => [m.id, m]));
+
+/* settings */
+let cfg = { n:'1000', rounds:'15', size:'24', enc:'utf8', del:'class', bust:true, modes:MODES.map(m => m.id) };
+try { Object.assign(cfg, JSON.parse(localStorage.getItem('iconbench') || '{}')); } catch (e) {}
+const fs = $('modes');
+for (const m of MODES) {
+  const lab = createElement('label', { className:'chk' });
+  lab.append(createElement('input', { type:'checkbox', value:m.id, checked:cfg.modes.includes(m.id) }),
+    Object.assign(createElement('span', { className:'sw' }), { style:`background:var(${m.c})` }), createElement('span', { textContent:m.name }));
+  fs.append(lab);
+}
+for (const k of ['n','rounds','size','enc','del']) $(k).value = cfg[k];
+$('bust').checked = cfg.bust;
+const readCfg = () => {
+  for (const k of ['n','rounds','size','enc','del']) cfg[k] = $(k).value;
+  cfg.bust = $('bust').checked;
+  cfg.modes = [...fs.querySelectorAll('input:checked')].map(i => i.value);
+  try { localStorage.setItem('iconbench', JSON.stringify(cfg)); } catch (e) {}
+  $('stage').style.setProperty('--base', cfg.size + 'px');
+};
+$('cfg').addEventListener('change', readCfg);
+readCfg();
+
+const ua = navigator.userAgent, m = ua.match(/(Firefox|Edg|OPR|Chrome)\/(\d+)/) || ua.match(/Version\/(\d+).*Safari/);
+$('env').textContent = `${m ? (m[2] ? `${m[1].replace('Edg','Edge')} ${m[2]}` : `Safari ${m[1]}`) : 'Unknown browser'} · ${devicePixelRatio}× pixel ratio · ${navigator.hardwareConcurrency || '?'} threads`;
+
+/* measurement */
+const stage = $('stage'), dyn = $('dyn');
+const frame = () => new Promise(r => requestAnimationFrame(() => {
+  const a = performance.now(), ch = new MessageChannel();
+  ch.port1.onmessage = () => r(performance.now() - a); ch.port2.postMessage(0);
+}));
+const waitVisible = () => new Promise(r => {
+  if (!document.hidden) return r();
+  status('Paused — the tab is hidden.');
+  const f = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', f); r(); } };
+  document.addEventListener('visibilitychange', f);
+});
+async function sample(mode, n, ctx) {
+  stage.classList.remove('big'); stage.textContent = ''; dyn.textContent = '';
+  void stage.offsetHeight; await frame();
+  const { html, css } = mode.build(n, ctx);
+  const t0 = performance.now();
+  dyn.textContent = css; stage.innerHTML = html;
+  const t1 = performance.now();
+  void stage.offsetHeight;
+  const t2 = performance.now();
+  const paint = await frame();
+  const t3 = performance.now();
+  stage.classList.add('big'); void stage.offsetHeight;
+  const t4 = performance.now();
+  const rp = await frame();
+  return { dom:t1 - t0, layout:t2 - t1, paint, total:(t2 - t0) + paint, relayout:(t4 - t3) + rp,
+           bytes:html.length + css.length, nodes:stage.getElementsByTagName('*').length };
+}
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const q = (a, p) => { const s = [...a].sort((x, y) => x - y), i = (s.length - 1) * p, lo = Math.floor(i); return s[lo] + (s[Math.ceil(i)] - s[lo]) * (i - lo); };
+const summ = arr => { const g = k => arr.map(s => s[k]);
+  return { dom:q(g('dom'), .5), layout:q(g('layout'), .5), paint:q(g('paint'), .5), relayout:q(g('relayout'), .5),
+           total:q(g('total'), .5), p75:q(g('total'), .75), min:Math.min(...g('total')), nodes:arr[0].nodes, bytes:arr[0].bytes, k:arr.length }; };
+
+let runId = 0, stop = false, busy = false, last = null;
+async function bench(n, rounds, onRound) {
+  const sel = cfg.modes.map(id => byId[id]);
+  const out = Object.fromEntries(sel.map(x => [x.id, []]));
+  for (let r = 0; r <= rounds && !stop; r++) {
+    for (const mode of shuffle([...sel])) {
+      if (stop) break;
+      await waitVisible();
+      const ctx = { enc:cfg.enc, del:cfg.del, tag:cfg.bust ? `<!--r${++runId}-->` : '' };
+      const s = await sample(mode, n, ctx);
+      if (r > 0) out[mode.id].push(s);
+    }
+    onRound(r, rounds, out);
+  }
+  return out;
+}
+
+/* rendering */
+const fmt = v => v < 10 ? v.toFixed(2) : v.toFixed(1);
+const kb = b => b < 1024 ? b + ' B' : (b / 1024).toFixed(b < 10240 ? 1 : 0) + ' KB';
+const status = t => $('status').textContent = t;
+const progress = f => $('bar').style.width = (f * 100).toFixed(1) + '%';
+
+function render(out, n) {
+  const rows = Object.entries(out).filter(([, a]) => a.length).map(([id, a]) => ({ m:byId[id], s:summ(a) }));
+  if (!rows.length) return;
+  last = { rows, n, cfg:{ ...cfg } };
+  const max = Math.max(...rows.map(r => r.s.total)), best = Math.min(...rows.map(r => r.s.total));
+  $('bars').innerHTML = rows.map(({ m, s }) => {
+    const w = v => (v / max * 100).toFixed(2) + '%', c = `background:var(${m.c})`;
+    return `<div class="row"><div class="lab">${esc(m.name)}</div><div class="track" title="DOM ${fmt(s.dom)} ms · layout ${fmt(s.layout)} ms · paint ${fmt(s.paint)} ms">` +
+      `<span style="width:${w(s.dom)};${c}"></span><span class="s2" style="width:${w(s.layout)};${c}"></span><span class="s3" style="width:${w(s.paint)};${c}"></span></div>` +
+      `<div class="val${s.total === best ? ' best' : ''}">${fmt(s.total)} ms</div></div>`;
+  }).join('');
+  const cols = ['Method','Total','DOM + CSS','Style + layout','Paint','Re-layout','p75 total','Best total','Nodes','Markup + CSS'];
+  $('tbl').innerHTML = `<thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>` + rows.map(({ m, s }) =>
+    `<tr><td>${esc(m.name)}</td><td>${fmt(s.total)}</td><td>${fmt(s.dom)}</td><td>${fmt(s.layout)}</td><td>${fmt(s.paint)}</td><td>${fmt(s.relayout)}</td><td>${fmt(s.p75)}</td><td>${fmt(s.min)}</td><td>${s.nodes.toLocaleString()}</td><td>${kb(s.bytes)}</td></tr>`).join('') +
+    `</tbody>`;
+  const sorted = [...rows].sort((a, b) => a.s.total - b.s.total);
+  const inl = rows.find(r => r.m.id === 'svg'), data = sorted.find(r => r.m.id === 'bg' || r.m.id === 'mask');
+  let [a, b] = inl && data ? (inl.s.total <= data.s.total ? [inl, data] : [data, inl]) : [sorted[0], sorted[sorted.length - 1]];
+  const ratio = b.s.total / a.s.total;
+  $('headline').textContent = rows.length < 2 ? `${a.m.name}: ${fmt(a.s.total)} ms for ${n.toLocaleString()} icons`
+    : ratio < 1.05 ? `At ${n.toLocaleString()} icons, ${a.m.name} and ${b.m.name} are effectively tied`
+    : `At ${n.toLocaleString()} icons, ${a.m.name} renders ${ratio.toFixed(1)}× faster than ${b.m.name}`;
+  $('sub').textContent = `Median of ${rows[0].s.k} rounds · ${cfg.enc === 'b64' ? 'Base64' : 'URL-encoded'} data URIs via ${cfg.del === 'style' ? 'inline styles' : 'shared classes'}${cfg.bust ? ', fresh each round' : ''} · times in ms (lower is better).`;
+}
+
+let sweep = null;
+function drawSweep() {
+  const s = $('ssvg'), W = s.clientWidth, H = s.clientHeight;
+  $('sLegend').innerHTML = sweep ? Object.keys(sweep.series).map(id => `<span><i style="background:var(${byId[id].c})"></i>${esc(byId[id].name)}</span>`).join('') : '';
+  if (!sweep || !W) { s.innerHTML = ''; return; }
+  $('snote').style.display = 'none';
+  const narrow = W < 520, pl = narrow ? 40 : 52, pr = 16, pt = 14, pb = 30;
+  const vals = Object.values(sweep.series).flat().filter(v => v != null);
+  const step = (() => { const raw = Math.max(...vals, 1) / 4, p = 10 ** Math.floor(Math.log10(raw)); return [1, 2, 2.5, 5, 10].map(x => x * p).find(x => x >= raw); })();
+  const ymax = step * 4, nC = sweep.counts.length;
+  const x = i => pl + (W - pl - pr) * (nC === 1 ? .5 : i / (nC - 1)), y = v => pt + (H - pt - pb) * (1 - v / ymax);
+  let h = '';
+  for (let t = 0; t <= 4; t++) { const v = step * t, yy = y(v);
+    h += `<line x1="${pl}" x2="${W - pr}" y1="${yy}" y2="${yy}" style="stroke:var(--line)"/><text x="${pl - 8}" y="${yy + 4}" text-anchor="end">${+v.toFixed(1)}${t === 4 && !narrow ? ' ms' : ''}</text>`; }
+  sweep.counts.forEach((c, i) => h += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${narrow && c >= 1000 ? c / 1000 + 'k' : c.toLocaleString()}</text>`);
+  for (const [id, arr] of Object.entries(sweep.series)) {
+    const pts = arr.map((v, i) => v == null ? null : [x(i), y(v)]).filter(Boolean);
+    const col = `var(${byId[id].c})`;
+    h += `<polyline fill="none" style="stroke:${col}" stroke-width="2.5" stroke-linejoin="round" points="${pts.map(p => p.join(',')).join(' ')}"/>`;
+    h += pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4" style="fill:${col}"/>`).join('');
+  }
+  s.innerHTML = h;
+}
+new ResizeObserver(drawSweep).observe($('sfig'));
+
+/* controls */
+const lock = on => { busy = on; $('run').disabled = $('sweepBtn').disabled = on; $('stop').disabled = !on; fs.disabled = on; };
+async function run() {
+  readCfg();
+  if (busy) return;
+  if (!cfg.modes.length) return status('Pick at least one method.');
+  lock(true); stop = false; stage.scrollIntoView({ block:'nearest' });
+  const n = +cfg.n, rounds = +cfg.rounds;
+  await bench(n, rounds, (r, R, out) => { progress((r + 1) / (R + 1)); status(r ? `Round ${r} of ${R}` : 'Warm-up round done'); render(out, n); });
+  status(stop ? 'Stopped — showing partial results.' : 'Done. Run again to check consistency.');
+  lock(false);
+}
+async function runSweep() {
+  readCfg();
+  if (busy) return;
+  if (!cfg.modes.length) return status('Pick at least one method.');
+  lock(true); stop = false; stage.scrollIntoView({ block:'nearest' });
+  const counts = [250, 1000, 2500, 5000, 10000], rounds = Math.max(3, Math.round(+cfg.rounds / 2));
+  sweep = { counts, series:Object.fromEntries(cfg.modes.map(id => [id, counts.map(() => null)])) };
+  for (const [ci, n] of counts.entries()) {
+    if (stop) break;
+    const out = await bench(n, rounds, r => { progress((ci + (r + 1) / (rounds + 1)) / counts.length); status(`Sweep: ${n.toLocaleString()} icons, round ${r} of ${rounds}`); });
+    for (const [id, a] of Object.entries(out)) if (a.length) sweep.series[id][ci] = q(a.map(s => s.total), .5);
+    drawSweep();
+  }
+  status(stop ? 'Sweep stopped.' : 'Sweep done.');
+  lock(false);
+}
+$('cfg').addEventListener('submit', e => { e.preventDefault(); run(); });
+$('sweepBtn').addEventListener('click', runSweep);
+$('stop').addEventListener('click', () => { stop = true; status('Stopping after this render…'); });
+$('copy').addEventListener('click', async () => {
+  if (!last) return $('copied').textContent = 'Nothing to copy yet.';
+  const md = `Icon benchmark — ${last.n} icons, ${$('env').textContent}\n\n| Method | Total ms | DOM+CSS | Layout | Paint | Re-layout | p75 | Nodes | Bytes |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|\n` +
+    last.rows.map(({ m, s }) => `| ${m.name} | ${fmt(s.total)} | ${fmt(s.dom)} | ${fmt(s.layout)} | ${fmt(s.paint)} | ${fmt(s.relayout)} | ${fmt(s.p75)} | ${s.nodes} | ${s.bytes} |`).join('\n');
+  try { await navigator.clipboard.writeText(md); $('copied').textContent = 'Copied.'; }
+  catch (e) { $('copied').textContent = 'Clipboard blocked by the browser.'; }
+});
+
+/* open mid-use: a first run on load */
+const start = () => setTimeout(run, 400);
+if (document.hidden) document.addEventListener('visibilitychange', function f() { if (!document.hidden) { document.removeEventListener('visibilitychange', f); start(); } });
+else start();
+}
+</script>
+</body>
+</html>
